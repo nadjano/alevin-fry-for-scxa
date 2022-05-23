@@ -52,6 +52,7 @@ SDRF_FOR_FASTQS
 
 // generate splici index if it does not exits
 process make_splici {
+    publishDir "t2g_alevin_fry/${species}", mode: 'copy', overwrite: true
 
     cache 'lenient'
    
@@ -80,6 +81,7 @@ process make_splici {
 }
 
 process index_for_alevin_fry {
+    publishDir "index_alevin_fry/${species}", mode: 'copy', overwrite: true
     cache 'lenient'
     memory { 100.GB * task.attempt }
     cpus 4
