@@ -105,155 +105,191 @@ process index_for_alevin_fry {
  }
 
 
-// // Call the download script to retrieve run fastqs
+// Call the download script to retrieve run fastqs
 
-// process download_fastqs {
+process download_fastqs {
     
-//     conda "${baseDir}/envs/atlas-fastq-provider.yml"
+    conda "${baseDir}/envs/atlas-fastq-provider.yml"
     
-//     maxForks params.maxConcurrentDownloads
-//     time { 10.hour * task.attempt }
-//     memory { 20.GB * task.attempt }
+    maxForks params.maxConcurrentDownloads
+    time { 10.hour * task.attempt }
+    memory { 20.GB * task.attempt }
 
-//     errorStrategy { task.attempt<=10 & task.exitStatus != 4 ? 'retry' : 'finish' } 
+    errorStrategy { task.attempt<=10 & task.exitStatus != 4 ? 'retry' : 'finish' } 
     
-//     input:
-//         set runId, cdnaFastqURI, barcodesFastqURI, cdnaFastqFile, barcodesFastqFile, val(barcodeLength), val(umiLength), val(end), val(cellCount), val(controlledAccess) from FASTQ_RUNS
+    input:
+        set runId, cdnaFastqURI, barcodesFastqURI, cdnaFastqFile, barcodesFastqFile, val(barcodeLength), val(umiLength), val(end), val(cellCount), val(controlledAccess) from FASTQ_RUNS
 
-//     output:
-//         set val(runId), file("${cdnaFastqFile}"), file("${barcodesFastqFile}"), val(barcodeLength), val(umiLength), val(end), val(cellCount) into DOWNLOADED_FASTQS
+    output:
+        set val(runId), file("${cdnaFastqFile}"), file("${barcodesFastqFile}"), val(barcodeLength), val(umiLength), val(end), val(cellCount) into DOWNLOADED_FASTQS
 
-//     """
-//         if [ -n "$manualDownloadFolder" ] && [ -e $manualDownloadFolder/${cdnaFastqFile} ] && [ -e $manualDownloadFolder/${barcodesFastqFile} ]; then
-//            ln -s $manualDownloadFolder/${cdnaFastqFile} ${cdnaFastqFile}
-//            ln -s $manualDownloadFolder/${barcodesFastqFile} ${barcodesFastqFile}
-//         elif [ -n "$manualDownloadFolder" ] && [ -e $manualDownloadFolder/${cdnaFastqFile} ] && [ ! -e $manualDownloadFolder/${barcodesFastqFile} ]; then
-//             echo 'cDNA file $cdnaFastqFile is available locally, but barcodes file $barcodesFastqFile is not 1>&2
-//             exit 2    
-//         elif [ -n "$manualDownloadFolder" ] && [ ! -e $manualDownloadFolder/${cdnaFastqFile} ] && [ -e $manualDownloadFolder/${barcodesFastqFile} ]; then
-//             echo 'cDNA file $cdnaFastqFile is not available locally, but barcodes file $barcodesFastqFile is 1>&2
-//             exit 3 
-//         elif [ "$controlledAccess" = 'yes' ]; then
-//             echo "One or both of ${cdnaFastqFile}, ${barcodesFastqFile} are not available at $manualDownloadFolder/ for this controlled access experiment" 1>&2
-//             exit 4   
-//         else
-//             confPart=''
-//             if [ -n "$fastqProviderConfig" ] && [ -e "$fastqProviderConfig" ]; then
-//                 confPart=" -c $fastqProviderConfig"
-//             fi 
+    """
+        if [ -n "$manualDownloadFolder" ] && [ -e $manualDownloadFolder/${cdnaFastqFile} ] && [ -e $manualDownloadFolder/${barcodesFastqFile} ]; then
+           ln -s $manualDownloadFolder/${cdnaFastqFile} ${cdnaFastqFile}
+           ln -s $manualDownloadFolder/${barcodesFastqFile} ${barcodesFastqFile}
+        elif [ -n "$manualDownloadFolder" ] && [ -e $manualDownloadFolder/${cdnaFastqFile} ] && [ ! -e $manualDownloadFolder/${barcodesFastqFile} ]; then
+            echo 'cDNA file $cdnaFastqFile is available locally, but barcodes file $barcodesFastqFile is not 1>&2
+            exit 2    
+        elif [ -n "$manualDownloadFolder" ] && [ ! -e $manualDownloadFolder/${cdnaFastqFile} ] && [ -e $manualDownloadFolder/${barcodesFastqFile} ]; then
+            echo 'cDNA file $cdnaFastqFile is not available locally, but barcodes file $barcodesFastqFile is 1>&2
+            exit 3 
+        elif [ "$controlledAccess" = 'yes' ]; then
+            echo "One or both of ${cdnaFastqFile}, ${barcodesFastqFile} are not available at $manualDownloadFolder/ for this controlled access experiment" 1>&2
+            exit 4   
+        else
+            confPart=''
+            if [ -n "$fastqProviderConfig" ] && [ -e "$fastqProviderConfig" ]; then
+                confPart=" -c $fastqProviderConfig"
+            fi 
 
-//             # Stop fastq downloader from testing different methods -assume the control workflow has done that 
-//             export NOPROBE=1
+            # Stop fastq downloader from testing different methods -assume the control workflow has done that 
+            export NOPROBE=1
         
-//             fetchFastq.sh -f ${cdnaFastqURI} -t ${cdnaFastqFile} -m ${params.downloadMethod} \$confPart
+            fetchFastq.sh -f ${cdnaFastqURI} -t ${cdnaFastqFile} -m ${params.downloadMethod} \$confPart
             
-//             # Allow for the first download also having produced the second output already
+            # Allow for the first download also having produced the second output already
 
-//             if [ ! -e ${barcodesFastqFile} ]; then
-//                 fetchFastq.sh -f ${barcodesFastqURI} -t ${barcodesFastqFile} -m ${params.downloadMethod} \$confPart
-//             fi
-//         fi
-//     """
-// }
+            if [ ! -e ${barcodesFastqFile} ]; then
+                fetchFastq.sh -f ${barcodesFastqURI} -t ${barcodesFastqFile} -m ${params.downloadMethod} \$confPart
+            fi
+        fi
+    """
+}
 
-// // Group read files by run name, or by technical replicate group if specified
+// Group read files by run name, or by technical replicate group if specified
 
-// if ( params.fields.containsKey('techrep')){
+if ( params.fields.containsKey('techrep')){
 
-//     // If technical replicates are present, create a channel containing that info 
+    // If technical replicates are present, create a channel containing that info 
 
-//     SDRF_FOR_TECHREP
-//         .map{ row-> tuple(row["${params.fields.run}"], row["${params.fields.techrep}"]) }
-//         .groupTuple()
-//         .map{ row-> tuple( row[0], row[1][0]) }
-//         .set{ TECHREPS }
+    SDRF_FOR_TECHREP
+        .map{ row-> tuple(row["${params.fields.run}"], row["${params.fields.techrep}"]) }
+        .groupTuple()
+        .map{ row-> tuple( row[0], row[1][0]) }
+        .set{ TECHREPS }
 
-//     // The target set of results will now be the technical replicate group number
+    // The target set of results will now be the technical replicate group number
 
-//     SDRF_FOR_COUNT
-//         .map{ row-> tuple(row["${params.fields.techrep}"]) }
-//         .unique()
-//         .count()
-//         .set { TARGET_RESULT_COUNT }
+    SDRF_FOR_COUNT
+        .map{ row-> tuple(row["${params.fields.techrep}"]) }
+        .unique()
+        .count()
+        .set { TARGET_RESULT_COUNT }
     
-//     // Now add the tech rep group to the run info, group by it, and create a
-//     // tuple of files keyed by techrep group
+    // Now add the tech rep group to the run info, group by it, and create a
+    // tuple of files keyed by techrep group
 
-//     TECHREPS.join( DOWNLOADED_FASTQS )
-//         .groupTuple(by: 1)
-//         .map{ row-> tuple( row[1], row[2].flatten(), row[3].flatten(), row[4][0], row[5][0], row[6][0], row[7][0]) }
-//         .set{
-//             FINAL_FASTQS
-//         }
-// }else{
-//     DOWNLOADED_FASTQS.set{ FINAL_FASTQS }
+    TECHREPS.join( DOWNLOADED_FASTQS )
+        .groupTuple(by: 1)
+        .map{ row-> tuple( row[1], row[2].flatten(), row[3].flatten(), row[4][0], row[5][0], row[6][0], row[7][0]) }
+        .set{
+            FINAL_FASTQS
+        }
+}else{
+    DOWNLOADED_FASTQS.set{ FINAL_FASTQS }
     
-//     SDRF_FOR_COUNT
-//       .map{ row-> tuple(row["${params.fields.run}"]) }
-//       .unique()
-//       .count()
-//       .set { TARGET_RESULT_COUNT }
-// }
+    SDRF_FOR_COUNT
+      .map{ row-> tuple(row["${params.fields.run}"]) }
+      .unique()
+      .count()
+      .set { TARGET_RESULT_COUNT }
+}
 
-// FINAL_FASTQS.into{
-//     FINAL_FASTQS_FOR_CONFIG
-//     FINAL_FASTQS_FOR_ALEVIN
-// }
+FINAL_FASTQS.into{
+    FINAL_FASTQS_FOR_CONFIG
+    FINAL_FASTQS_FOR_ALEVIN
+}
 
-// // Derive Alevin barcodeconfig
+// Derive Alevin barcodeconfig
 
-// process alevin_config {
+process alevin_config {
 
-//     input:
-//         set val(runId), file("cdna*.fastq.gz"), file("barcodes*.fastq.gz"), val(barcodeLength), val(umiLength), val(end), val(cellCount) from FINAL_FASTQS_FOR_CONFIG
+    input:
+        set val(runId), file("cdna*.fastq.gz"), file("barcodes*.fastq.gz"), val(barcodeLength), val(umiLength), val(end), val(cellCount) from FINAL_FASTQS_FOR_CONFIG
 
-//     output:
-//         set val(runId), stdout into ALEVIN_CONFIG
+    output:
+        set val(runId), stdout into ALEVIN_CONFIG
     
-//     script:
+    script:
 
-//         def barcodeConfig = ''
+        def barcodeConfig = ''
 
-//         if ( params.containsKey(protocol) ){
+        if ( params.containsKey(protocol) ){
 
-//             canonicalProtocol = params.get(protocol)
-//             alevinType = canonicalProtocol.alevinType
+            canonicalProtocol = params.get(protocol)
+            alevinType = canonicalProtocol.alevinType
 
-//             // Non-standard barcode config is supplied as a custom method
+            // Non-standard barcode config is supplied as a custom method
 
-//             if ( alevinType == 'custom' || "${canonicalProtocol.barcodeLength}" != barcodeLength || "${canonicalProtocol.umiLength}" != umiLength || "${canonicalProtocol.end}" != end ){
-//                 barcodeConfig = "--barcodeLength ${barcodeLength} --umiLength ${umiLength} --end ${end}" 
+            if ( alevinType == 'custom' || "${canonicalProtocol.barcodeLength}" != barcodeLength || "${canonicalProtocol.umiLength}" != umiLength || "${canonicalProtocol.end}" != end ){
+                barcodeConfig = "--barcodeLength ${barcodeLength} --umiLength ${umiLength} --end ${end}" 
 
-//             }else{
-//                 barcodeConfig = "--$alevinType"
-//             }
-//             barcodeConfig = "-l ${canonicalProtocol.libType} $barcodeConfig" 
-//         }
+            }else{
+                barcodeConfig = "--$alevinType"
+            }
+            barcodeConfig = "-l ${canonicalProtocol.libType} $barcodeConfig" 
+        }
 
-//         """
-//         if [ -z "$barcodeConfig" ]; then
-//             echo Input of $protocol results is misconfigured 1>&2
-//             exit 1
-//         fi
+        """
+        if [ -z "$barcodeConfig" ]; then
+            echo Input of $protocol results is misconfigured 1>&2
+            exit 1
+        fi
 
-//         # Also check barcode read lengths and return non-0 if they're not what they should be
+        # Also check barcode read lengths and return non-0 if they're not what they should be
 
-//         targetLen=\$(($umiLength + $barcodeLength))
-//         barcodesGood=0
-//         set +e
-//         while read -r l; do
-//             checkBarcodeRead.sh -r \$(readlink -f \$l) -b $barcodeLength -u $umiLength -n 1000000 1>&2
-//             if [ \$? -ne 0 ]; then
-//                 barcodesGood=1
-//             fi
-//         done <<< "\$(ls barcodes*.fastq.gz)"
-//         set -e
+        targetLen=\$(($umiLength + $barcodeLength))
+        barcodesGood=0
+        set +e
+        while read -r l; do
+            checkBarcodeRead.sh -r \$(readlink -f \$l) -b $barcodeLength -u $umiLength -n 1000000 1>&2
+            if [ \$? -ne 0 ]; then
+                barcodesGood=1
+            fi
+        done <<< "\$(ls barcodes*.fastq.gz)"
+        set -e
         
-//         echo -n "$barcodeConfig"
-//         exit \$barcodesGood
-//         """
-// }
+        echo -n "$barcodeConfig"
+        exit \$barcodesGood
+        """
+}
+// run alevin-fry for quantification with splici index
+ process alevin_fry_MR3 {
+    cache 'lenient'
+    memory { 100.GB * task.attempt }
+    errorStrategy { task.exitStatus !=2 && (task.exitStatus == 130 || task.exitStatus == 137 || task.attempt < 3)  ? 'retry' : 'ignore' }
+    maxRetries 10
+    conda "${baseDir}/envs/alevin-fry_2.yml"
+    input:
+        set val(runId), file("cdna*.fastq.gz"), file("barcodes*.fastq.gz"), val(barcodeLength), val(umiLength), val(end), val(cellCount), val(barcodeConfig) from FINAL_FASTQS_FOR_ALEVIN.join(ALEVIN_CONFIG)
+        path "alevin_index_for_fry" from ALEVIN_FRY_INDEX_SPLICI
+        path "t2g_cDNA.txt" from T2G_3_FOR_FRY
+       
+    output:
+        // publishDir path "${runId}_ALEVIN"
+        set val(runId), path("${runId}_ALEVIN_fry_quant") into ALEVIN_FRY_RESULTS_SPLICI
+      
 
+    """
+    salmon alevin ${barcodeConfig} --sketch -1 \$(ls barcodes*.fastq.gz | tr '\\n' ' ') -2 \$(ls cdna*.fastq.gz | tr '\\n' ' ') \
+        -i alevin_index_for_fry -p ${task.cpus} -o ${runId}_ALEVIN_fry_map t2g_cDNA.txt 
+
+    if (${barcodeConfig} == "--chromium")
+    then
+        alevin-fry generate-permit-list --unfiltered-pl '${baseDir}/whitelist/737K-august-2016.txt' --input ${runId}_ALEVIN_fry_map -d fw --output-dir ${runId}_ALEVIN_fry_quant -k --min-reads 1
+    elif (${barcodeConfig} == "--chromiumV3")
+    then
+        alevin-fry generate-permit-list --unfiltered-pl '${baseDir}/whitelist/3M-february-2018.txt.gz' t --input ${runId}_ALEVIN_fry_map -d fw --output-dir ${runId}_ALEVIN_fry_quant -k --min-reads 1
+    else
+        alevin-fry generate-permit-list --input ${runId}_ALEVIN_fry_map -d fw --output-dir ${runId}_ALEVIN_fry_quant -k --min-reads 1
+    fi
+
+    alevin-fry collate -i ${runId}_ALEVIN_fry_quant -r ${runId}_ALEVIN_fry_map -t 16
+    alevin-fry quant -i ${runId}_ALEVIN_fry_quant -m t2g_cDNA.txt -t 16 -r cr-like -o ${runId}_ALEVIN_fry_quant --use-mtx
+
+        
+    """
+}
 // // Run Alevin per row
 
 // process alevin_fry {
