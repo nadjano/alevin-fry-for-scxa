@@ -32,7 +32,7 @@ Channel
         SDRF_FOR_COUNT
     }
 
-TRANSCRIPT_TO_GENE = Channel.fromPath( transcriptToGene, checkIfExists: true ).first()
+// TRANSCRIPT_TO_GENE = Channel.fromPath( transcriptToGene, checkIfExists: true ).first()
 REFERENCE_GENOME = Channel.fromPath( transcriptToGene, checkIfExists: true ).first()
 REFERENCE_GTF = Channel.fromPath( transcriptToGene, checkIfExists: true ).first()
 
