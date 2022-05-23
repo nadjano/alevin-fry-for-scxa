@@ -257,6 +257,7 @@ process alevin_config {
 }
 // run alevin-fry for quantification with splici index
  process alevin_fry_MR3 {
+    publishDir "${resultsRoot}"/"${name}", mode: 'copy', overwrite: true
     cache 'lenient'
     memory { 100.GB * task.attempt }
     errorStrategy { task.exitStatus !=2 && (task.exitStatus == 130 || task.exitStatus == 137 || task.attempt < 3)  ? 'retry' : 'ignore' }
