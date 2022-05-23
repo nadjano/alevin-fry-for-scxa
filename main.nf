@@ -33,8 +33,8 @@ Channel
     }
 
 // TRANSCRIPT_TO_GENE = Channel.fromPath( transcriptToGene, checkIfExists: true ).first()
-REFERENCE_GENOME = Channel.fromPath( transcriptToGene, checkIfExists: true ).first()
-REFERENCE_GTF = Channel.fromPath( transcriptToGene, checkIfExists: true ).first()
+REFERENCE_GENOME = Channel.fromPath(referenceFasta, checkIfExists: true ).first()
+REFERENCE_GTF = Channel.fromPath(referenceGtf, checkIfExists: true ).first()
 
 
 // Read URIs from SDRF, generate target file names, and barcode locations
