@@ -1,6 +1,4 @@
-name: atlas-fastq-provider
+name: atlas-fastq-provider-2
 dependencies:
-  - jq
-  - atlas-fastq-provider=0.4.0
-  - sra-tools
-  - hca=7.0.1
+  - ebi-gene-expression-group::atlas-fastq-provider=0.4.0
+  - bioconda::sra-tools
